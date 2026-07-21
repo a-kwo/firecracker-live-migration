@@ -10,6 +10,14 @@ and this project adheres to
 
 ### Added
 
+- (this fork) Live VM migration: a new `/migrate` API dumps guest memory
+  without pausing the vCPUs (`GET` for status; `PUT` with `Full`/`Diff` type
+  and an optional `offset`/`len` range for chunked full passes), enabling
+  pre-copy live migration between hosts with ~22 ms blackout. Includes a
+  correctness fix to the full-dump path (dirty tracking is now reset before
+  the dump, so pages written concurrently with an unpaused dump are re-sent).
+  See [docs/live-migration.md](docs/live-migration.md) and the demo harness in
+  [tools/migration/](tools/migration/README.md).
 - [#5891](https://github.com/firecracker-microvm/firecracker/pull/5891): Added
   support for virtio device reset.
 - [#5983](https://github.com/firecracker-microvm/firecracker/pull/5983): Add two
