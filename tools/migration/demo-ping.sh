@@ -15,8 +15,11 @@ GUEST_IP=172.16.0.2
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PINGLOG=$(mktemp /tmp/mig-ping.XXXXXX)
 
-echo "== starting continuous ping (5ms interval, timestamped) =="
-sudo ping -D -i 0.005 "$GUEST_IP" > "$PINGLOG" 2>&1 &
+# 1ms probe interval: the observed reply gap can only resolve an outage to the
+# probe grid, so the finer the interval, the closer the gap reads to the true
+# blackout (gap ~= blackout + one interval).
+echo "== starting continuous ping (1ms interval, timestamped) =="
+sudo ping -D -i 0.001 "$GUEST_IP" > "$PINGLOG" 2>&1 &
 PING_PID=$!
 sleep 2   # steady-state before the migration
 
@@ -41,7 +44,7 @@ awk '
     END {
         if (n < 2) { print "   not enough replies captured"; exit 1 }
         printf "   replies: %d   largest inter-reply gap: %.1f ms\n", n, max
+        printf "   client-implied blackout (gap - 1ms probe interval): %.1f ms\n", max - 1.0
     }
 ' "$PINGLOG"
-echo "   (steady-state interval is 5 ms; the gap above includes one interval)"
 echo "   ping log: $PINGLOG"
