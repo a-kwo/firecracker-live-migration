@@ -18,6 +18,13 @@ docker build -q -t "$IMAGE" "$HERE" >/dev/null
 echo "== (re)creating network $NET =="
 docker network inspect "$NET" >/dev/null 2>&1 || docker network create "$NET" >/dev/null
 
+# RAM-backed scratch shared by both hosts for the migration image. Keeping the
+# snapshot state/memory files on tmpfs makes the cutover fsync instant, which
+# matters because that fsync sits inside the blackout window.
+MIGTMP=/dev/shm/fcmig
+mkdir -p "$MIGTMP"
+echo "== shared migration tmpfs at $MIGTMP -> /mig =="
+
 start_host() {
     local name="$1"
     docker rm -f "$name" >/dev/null 2>&1 || true
@@ -27,6 +34,7 @@ start_host() {
         --device /dev/net/tun \
         --cap-add NET_ADMIN \
         -v "$FC_DIR:/fc" \
+        -v "$MIGTMP:/mig" \
         -w /fc \
         "$IMAGE" sleep infinity >/dev/null
     local ip

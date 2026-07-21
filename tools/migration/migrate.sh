@@ -24,7 +24,8 @@ GUEST_IP=172.16.0.2
 SRC_SOCK=/fc/src.sock
 DST_SOCK=/fc/dst.sock
 FCBIN=/fc/build/cargo_target/x86_64-unknown-linux-musl/debug/firecracker
-SNAPDIR=/fc/migration
+# RAM-backed shared scratch (see setup-hosts.sh) so the cutover fsync is instant.
+SNAPDIR=/mig
 MEM=$SNAPDIR/mem.file
 STATE=$SNAPDIR/snap.file
 ROUNDS=${ROUNDS:-3}
