@@ -22,10 +22,16 @@ MIGLOG=$(mktemp /tmp/mig-out.XXXXXX)
 
 echo "[1/3] starting continuous ping of $GUEST_IP (1000 probes/sec)"
 sudo -v
-# Fully detach the ping from this terminal (its own session, I/O on the log
-# file only) so backgrounding sudo cannot garble the tty line discipline.
-PING_PID=$(sudo sh -c "ping -D -i 0.001 $GUEST_IP </dev/null >'$PINGLOG' 2>&1 & echo \$!")
-sleep 2   # steady-state before the migration
+# Detach the ping into its own session (setsid): no controlling terminal means
+# no SIGHUP when the launching shell exits, and no tty garbling either.
+PING_PID=$(sudo sh -c "setsid ping -D -i 0.001 $GUEST_IP </dev/null >'$PINGLOG' 2>&1 & echo \$!")
+sleep 1
+if ! sudo kill -0 "$PING_PID" 2>/dev/null; then
+    echo "ping failed to start; its output was:"
+    cat "$PINGLOG"
+    exit 1
+fi
+sleep 1   # steady-state before the migration
 
 echo "[2/3] migrating src -> dst while the ping runs"
 bash "$HERE/migrate.sh" 2>&1 | tee "$MIGLOG"
@@ -36,7 +42,7 @@ sleep 0.3
 stty sane 2>/dev/null || true
 
 echo
-echo "[3/3] client-observed continuity"
+echo "[3/3] client-observed continuity        (ping log: $PINGLOG)"
 BLACKOUT=$(grep -oE 'TRUE BLACKOUT \(pause -> resume\): [0-9.]+' "$MIGLOG" \
     | grep -oE '[0-9.]+' | tail -1 || true)
 
@@ -70,4 +76,3 @@ awk -v blackout="${BLACKOUT:-0}" '
         print rule
     }
 ' "$PINGLOG"
-echo "   ping log: $PINGLOG"
