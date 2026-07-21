@@ -79,5 +79,11 @@ pub enum MigrationError {
 pub fn dump_memory(vmm: &Vmm, params: &MigrateMemoryParams) -> Result<(), MigrationError> {
     let kvm_vm = vmm.vm.as_kvm().ok_or(MigrationError::NotKvmVm)?;
     kvm_vm.snapshot_memory_to_file(&params.memory_path, params.snapshot_type)?;
+    // Virtio queue memory is written by the VMM, not the guest, so KVM's dirty
+    // log never marks it. Mark it dirty here — exactly as create_snapshot does —
+    // so the next pre-copy round (or the cutover snapshot) re-sends it and the
+    // destination's queue memory stays consistent with the device state.
+    vmm.device_manager
+        .mark_virtio_queue_memory_dirty(kvm_vm.guest_memory());
     Ok(())
 }
