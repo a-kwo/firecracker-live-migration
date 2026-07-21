@@ -15,8 +15,9 @@ set -euo pipefail
 
 NET_BRIDGE=br-mig
 IMAGE=fc-host
-FC_DIR="${FC_DIR:-$HOME/firecracker}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Repo root (this script lives in tools/migration/); override with FC_DIR.
+FC_DIR="${FC_DIR:-$(cd "$HERE/../.." && pwd)}"
 MIGTMP=/dev/shm/fcmig
 
 echo "== building $IMAGE image =="
