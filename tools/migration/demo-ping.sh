@@ -17,7 +17,9 @@ set -euo pipefail
 
 GUEST_IP=172.16.0.2
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PINGLOG=$(mktemp /tmp/mig-ping.XXXXXX)
+# Name only (-u): root creates the ping log itself — fs.protected_regular
+# forbids root from reusing a user-owned file in the sticky /tmp.
+PINGLOG=$(mktemp -u /tmp/mig-ping.XXXXXX)
 MIGLOG=$(mktemp /tmp/mig-out.XXXXXX)
 
 echo "[1/3] starting continuous ping of $GUEST_IP (1000 probes/sec)"
