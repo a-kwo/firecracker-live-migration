@@ -61,6 +61,10 @@ awk -v blackout="${BLACKOUT:-0}" '
             seq = substr($0, RSTART + 9, RLENGTH - 9) + 0
             if (seq > maxseq) maxseq = seq
         }
+        if (match($0, /time=[0-9.]+/)) {
+            rtt = substr($0, RSTART + 5, RLENGTH - 5) + 0
+            if (rtt > maxrtt) maxrtt = rtt
+        }
     }
     END {
         if (n < 2) { print "  not enough ping replies captured"; exit 1 }
@@ -68,13 +72,12 @@ awk -v blackout="${BLACKOUT:-0}" '
         print rule
         print  "   Live VM migration: src -> dst"
         print rule
-        printf "   VM blackout (pause -> resume)      %7.1f ms\n", blackout
-        printf "   Client: largest reply gap          %7.1f ms\n", max
-        printf "   Client: implied blackout (-1ms)    %7.1f ms\n", max - 1.0
-        printf "   Probes answered                    %d of %d (%d lost)\n",
-               n, maxseq, maxseq - n
-        printf "   30 ms budget                       %s\n",
-               (blackout > 0 && blackout <= 30.0) ? "PASS" : "CHECK"
+        printf "   VM blackout (pause -> resume)   %7.1f ms   [budget 30 ms: %s]\n",
+               blackout, (blackout > 0 && blackout <= 30.0) ? "PASS" : "CHECK"
+        printf "   Probes answered                 %d of %d (%.2f%%)\n",
+               n, maxseq, 100.0 * n / maxseq
+        printf "   Worst round-trip during move    %7.1f ms\n", maxrtt
+        printf "   (diagnostic) largest reply gap  %7.1f ms\n", max
         print rule
     }
 ' "$PINGLOG"
