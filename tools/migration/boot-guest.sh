@@ -28,7 +28,7 @@ docker exec "$HOST" bash -c "
   ip link set tap0 up
   rm -f $SOCK
   # stdin from /dev/null so the backgrounded VMM is not stopped by SIGTTIN.
-  nohup $FCBIN --api-sock $SOCK --config-file /fc/vm_config.json \
+  nohup $FCBIN --api-sock $SOCK --config-file /fc/tools/migration/vm_config.json \
       </dev/null >/tmp/fc.log 2>&1 &
   sleep 4
   echo '--- fc log tail ---'; tail -n 5 /tmp/fc.log
