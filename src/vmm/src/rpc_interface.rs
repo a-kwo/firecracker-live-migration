@@ -73,6 +73,9 @@ pub enum VmmAction {
     GetFullVmConfig,
     /// Get MMDS contents.
     GetMMDS,
+    /// Get migration-relevant status (guest memory size, dirty-page tracking)
+    /// for the running microVM.
+    GetMigrationStatus,
     /// Get the machine configuration of the microVM.
     GetVmMachineConfig,
     /// Get microVM instance information.
@@ -241,6 +244,8 @@ pub enum VmmData {
     InstanceInformation(InstanceInfo),
     /// The microVM version.
     VmmVersion(String),
+    /// Migration-relevant status for the running microVM.
+    MigrationStatus(crate::migration::MigrationStatus),
     /// The status of the memory hotplug device.
     VirtioMemStatus(VirtioMemStatus),
     /// The status of the virtio-balloon hinting run
@@ -505,6 +510,7 @@ impl<'a> PrebootApiController<'a> {
             | Pause
             | Resume
             | GetBalloonStats
+            | GetMigrationStatus
             | GetMemoryHotplugStatus
             | UpdateBalloon(_)
             | UpdateBalloonStatistics(_)
@@ -720,6 +726,11 @@ impl RuntimeApiController {
                 .map_err(VmmActionError::InternalVmm),
             GetFullVmConfig => Ok(VmmData::FullVmConfig(
                 self.vmm.lock().expect("Poisoned lock").full_config(),
+            )),
+            GetMigrationStatus => Ok(VmmData::MigrationStatus(
+                crate::migration::MigrationStatus::from_vmm(
+                    &self.vmm.lock().expect("Poisoned lock"),
+                ),
             )),
             GetMemoryHotplugStatus => self
                 .vmm
