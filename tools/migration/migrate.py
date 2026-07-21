@@ -110,20 +110,24 @@ def main():
     dump("Diff")  # converge one last round right before the freeze
     print(f"  pre-copy: {total >> 20} MiB in {time.monotonic() - t_pre:.2f}s "
           f"({(total + CHUNK - 1) // CHUNK} chunks + {ROUNDS + 1} dirty rounds)")
+    # Let the VMM thread drain device queues after the converge round, so the
+    # client-visible outage starts at the pause rather than at the round's stall.
+    time.sleep(0.010)
 
     # Cutover freeze: pause -> final diff + device state -> load + resume on dst.
     t0 = time.monotonic_ns()
     api(SRC_SOCK, "PATCH", "/vm", '{"state":"Paused"}')
-    api(SRC_SOCK, "PUT", "/snapshot/create",
-        f'{{"snapshot_type":"Diff","snapshot_path":"{STATE}","mem_file_path":"{MEM}"}}')
-    # Drop the bridge's learned location for the guest MAC while the guest is
-    # frozen: the first frame after resume floods to every port and reaches the
-    # guest on its new tap immediately, instead of blackholing to the source tap
-    # until the guest happens to transmit.
+    # Drop the bridge's learned location for the guest MAC now that the guest
+    # can no longer transmit (paused): frames arriving during the freeze flood
+    # to every port, so the destination tap starts receiving as soon as the
+    # loading Firecracker attaches it, and the first post-resume reply is not
+    # gated on relearning.
     subprocess.run(
         ["bridge", "fdb", "del", GUEST_MAC, "dev", SRC_TAP, "master"],
         capture_output=True,
     )
+    api(SRC_SOCK, "PUT", "/snapshot/create",
+        f'{{"snapshot_type":"Diff","snapshot_path":"{STATE}","mem_file_path":"{MEM}"}}')
     api(DST_SOCK, "PUT", "/snapshot/load",
         f'{{"snapshot_path":"{STATE}",'
         f'"mem_backend":{{"backend_type":"File","backend_path":"{MEM}"}},'

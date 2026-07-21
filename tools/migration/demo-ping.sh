@@ -37,14 +37,21 @@ awk '
         if (prev > 0) {
             gap = (ts - prev) * 1000
             if (gap > max) max = gap
+            if (gap > 10) big[++nbig] = gap
         }
         prev = ts
         n++
+        if (match($0, /icmp_seq=[0-9]+/)) {
+            seq = substr($0, RSTART + 9, RLENGTH - 9) + 0
+            if (seq > maxseq) maxseq = seq
+        }
     }
     END {
         if (n < 2) { print "   not enough replies captured"; exit 1 }
-        printf "   replies: %d   largest inter-reply gap: %.1f ms\n", n, max
-        printf "   client-implied blackout (gap - 1ms probe interval): %.1f ms\n", max - 1.0
+        printf "   replies: %d of %d sent (%d lost)\n", n, maxseq, maxseq - n
+        printf "   largest inter-reply gap: %.1f ms", max
+        for (i = 1; i <= nbig; i++) if (big[i] != max) printf "   (also >10ms: %.1f)", big[i]
+        printf "\n   client-implied blackout (gap - 1ms probe interval): %.1f ms\n", max - 1.0
     }
 ' "$PINGLOG"
 echo "   ping log: $PINGLOG"
