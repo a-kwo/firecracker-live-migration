@@ -64,12 +64,16 @@ docker exec src bash -c "
       -d '{\"memory_path\":\"$MEM\",\"snapshot_type\":\"Diff\"}'
   t0=\$(date +%s%N)
   curl -s --unix-socket $SRC_SOCK -X PATCH http://localhost/vm -d '{\"state\":\"Paused\"}'
+  t1=\$(date +%s%N)
   curl -s --unix-socket $SRC_SOCK -X PUT http://localhost/snapshot/create \
       -d '{\"snapshot_type\":\"Diff\",\"snapshot_path\":\"$STATE\",\"mem_file_path\":\"$MEM\"}'
+  t2=\$(date +%s%N)
   curl -s --unix-socket $DST_SOCK -X PUT http://localhost/snapshot/load \
       -d '{\"snapshot_path\":\"$STATE\",\"mem_backend\":{\"backend_type\":\"File\",\"backend_path\":\"$MEM\"},\"resume_vm\":true}'
-  t1=\$(date +%s%N)
-  echo \"   TRUE BLACKOUT (pause -> resume): \$(( (t1 - t0) / 1000000 )) ms\"
+  t3=\$(date +%s%N)
+  ms() { echo \$(( (\$2 - \$1) / 1000000 )); }
+  echo \"   pause=\$(ms \$t0 \$t1)ms  create=\$(ms \$t1 \$t2)ms  load=\$(ms \$t2 \$t3)ms\"
+  echo \"   TRUE BLACKOUT (pause -> resume): \$(ms \$t0 \$t3) ms\"
 "
 
 echo "== verify guest resumed on dst =="
