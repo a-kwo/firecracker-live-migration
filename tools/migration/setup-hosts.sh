@@ -24,6 +24,7 @@ start_host() {
     docker run -d --name "$name" \
         --network "$NET" \
         --device /dev/kvm \
+        --device /dev/net/tun \
         --cap-add NET_ADMIN \
         -v "$FC_DIR:/fc" \
         -w /fc \

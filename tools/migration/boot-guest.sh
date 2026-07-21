@@ -16,8 +16,8 @@ GUEST_IP=172.16.0.2
 echo "== booting guest in container '$HOST' =="
 docker exec "$HOST" bash -c "
   set -e
-  ip tuntap add tap0 mode tap 2>/dev/null || true
-  ip addr add 172.16.0.1/24 dev tap0 2>/dev/null || true
+  ip link show tap0 >/dev/null 2>&1 || ip tuntap add tap0 mode tap
+  ip addr replace 172.16.0.1/24 dev tap0
   ip link set tap0 up
   pkill -9 firecracker 2>/dev/null || true
   rm -f /tmp/fc.sock
