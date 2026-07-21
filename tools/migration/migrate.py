@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+# Copyright 2026 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+"""Pre-copy live migration orchestrator, run inside the 'src' host container.
+
+The bulk of guest RAM is streamed to the destination while the source keeps
+running (PUT /migrate: a full pass then dirty-only rounds). The cutover then
+freezes the guest only long enough to ship the final small dirty delta plus
+device state (reusing the snapshot create/load API) and resume on the
+destination.
+
+This is a single long-lived process, so the three cutover API calls are plain
+in-process socket I/O with no subprocess/curl startup inside the freeze window —
+the blackout reflects Firecracker's work, not orchestration overhead.
+"""
+import socket
+import subprocess
+import sys
+import time
+
+SRC_SOCK = "/fc/src.sock"
+DST_SOCK = "/fc/dst.sock"
+MEM = "/mig/mem.file"
+STATE = "/mig/snap.file"
+KEY = "/fc/ubuntu-24.04.id_rsa"
+GUEST_IP = "172.16.0.2"
+ROUNDS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+
+
+def api(sock_path, method, path, body=""):
+    """Issue one HTTP request to a Firecracker API unix socket; return status."""
+    data = body.encode()
+    request = (
+        f"{method} {path} HTTP/1.1\r\n"
+        f"Host: localhost\r\n"
+        f"Content-Type: application/json\r\n"
+        f"Content-Length: {len(data)}\r\n"
+        f"Connection: close\r\n\r\n"
+    ).encode() + data
+
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(15)
+    sock.connect(sock_path)
+    sock.sendall(request)
+    buf = b""
+    while b"\r\n\r\n" not in buf:  # read through the response headers
+        chunk = sock.recv(4096)
+        if not chunk:
+            break
+        buf += chunk
+    sock.close()
+
+    status_line = buf.split(b"\r\n", 1)[0].decode(errors="replace")
+    parts = status_line.split()
+    code = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+    if code not in (200, 204):
+        raise RuntimeError(f"{method} {path} -> {status_line!r}")
+    return code
+
+
+def dump(kind):
+    """Stream guest memory to the destination image (Full or Diff), no pause."""
+    api(SRC_SOCK, "PUT", "/migrate", f'{{"memory_path":"{MEM}","snapshot_type":"{kind}"}}')
+
+
+def guest(cmd):
+    """Run a command in the source guest over SSH; return stdout."""
+    out = subprocess.run(
+        ["ssh", "-i", KEY, "-o", "StrictHostKeyChecking=no",
+         "-o", "ConnectTimeout=6", f"root@{GUEST_IP}", cmd],
+        capture_output=True, text=True,
+    )
+    return out.stdout.strip()
+
+
+def main():
+    marker = f"MIG-{int(time.time())}"
+    guest(f"echo {marker} > /dev/shm/proof")
+    print(f"  marker={marker} uptime_before={guest('cut -d\" \" -f1 /proc/uptime')}s")
+
+    # Pre-copy: full pass, then dirty rounds, all while the guest keeps running.
+    dump("Full")
+    for _ in range(ROUNDS):
+        dump("Diff")
+    dump("Diff")  # converge one last round right before the freeze
+
+    # Cutover freeze: pause -> final diff + device state -> load + resume on dst.
+    t0 = time.monotonic_ns()
+    api(SRC_SOCK, "PATCH", "/vm", '{"state":"Paused"}')
+    api(SRC_SOCK, "PUT", "/snapshot/create",
+        f'{{"snapshot_type":"Diff","snapshot_path":"{STATE}","mem_file_path":"{MEM}"}}')
+    api(DST_SOCK, "PUT", "/snapshot/load",
+        f'{{"snapshot_path":"{STATE}",'
+        f'"mem_backend":{{"backend_type":"File","backend_path":"{MEM}"}},'
+        f'"resume_vm":true}}')
+    t1 = time.monotonic_ns()
+
+    print(f"   TRUE BLACKOUT (pause -> resume): {(t1 - t0) / 1e6:.1f} ms")
+
+
+if __name__ == "__main__":
+    main()
