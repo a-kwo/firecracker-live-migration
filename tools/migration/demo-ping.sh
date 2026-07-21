@@ -68,16 +68,15 @@ awk -v blackout="${BLACKOUT:-0}" '
     }
     END {
         if (n < 2) { print "  not enough ping replies captured"; exit 1 }
-        rule = "  ------------------------------------------------------"
+        rule = "  ---------------------------------------------------"
         print rule
         print  "   Live VM migration: src -> dst"
         print rule
-        printf "   VM blackout (pause -> resume)   %7.1f ms   [budget 30 ms: %s]\n",
-               blackout, (blackout > 0 && blackout <= 30.0) ? "PASS" : "CHECK"
-        printf "   Probes answered                 %d of %d (%.2f%%)\n",
+        printf "   VM blackout (pause -> resume)     %5.1f ms\n", blackout
+        printf "   30 ms budget                       %s\n",
+               (blackout > 0 && blackout <= 30.0) ? "PASS" : "OVER"
+        printf "   Client probes answered             %d of %d (%.2f%%)\n",
                n, maxseq, 100.0 * n / maxseq
-        printf "   Worst round-trip during move    %7.1f ms\n", maxrtt
-        printf "   (diagnostic) largest reply gap  %7.1f ms\n", max
         print rule
     }
 ' "$PINGLOG"
