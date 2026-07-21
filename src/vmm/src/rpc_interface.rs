@@ -76,6 +76,9 @@ pub enum VmmAction {
     /// Get migration-relevant status (guest memory size, dirty-page tracking)
     /// for the running microVM.
     GetMigrationStatus,
+    /// Dump guest memory for a pre-copy migration round (full or dirty-only),
+    /// without pausing the vCPUs.
+    MigrateMemory(crate::migration::MigrateMemoryParams),
     /// Get the machine configuration of the microVM.
     GetVmMachineConfig,
     /// Get microVM instance information.
@@ -169,6 +172,8 @@ pub enum VmmActionError {
     BootSource(#[from] BootSourceConfigError),
     /// Create snapshot error: {0}
     CreateSnapshot(#[from] CreateSnapshotError),
+    /// Migration error: {0}
+    Migration(#[from] crate::migration::MigrationError),
     /// Configure CPU error: {0}
     ConfigureCpu(#[from] GuestConfigError),
     /// Drive config error: {0}
@@ -511,6 +516,7 @@ impl<'a> PrebootApiController<'a> {
             | Resume
             | GetBalloonStats
             | GetMigrationStatus
+            | MigrateMemory(_)
             | GetMemoryHotplugStatus
             | UpdateBalloon(_)
             | UpdateBalloonStatistics(_)
@@ -732,6 +738,12 @@ impl RuntimeApiController {
                     &self.vmm.lock().expect("Poisoned lock"),
                 ),
             )),
+            MigrateMemory(params) => crate::migration::dump_memory(
+                &self.vmm.lock().expect("Poisoned lock"),
+                &params,
+            )
+            .map(|()| VmmData::Empty)
+            .map_err(VmmActionError::Migration),
             GetMemoryHotplugStatus => self
                 .vmm
                 .lock()

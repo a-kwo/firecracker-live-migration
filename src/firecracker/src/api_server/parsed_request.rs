@@ -27,7 +27,7 @@ use super::request::mmds::{parse_get_mmds, parse_patch_mmds, parse_put_mmds};
 use super::request::net::{parse_patch_net, parse_put_net};
 use super::request::pmem::{parse_patch_pmem, parse_put_pmem};
 use super::request::snapshot::{parse_patch_vm_state, parse_put_snapshot};
-use super::request::migrate::parse_get_migrate;
+use super::request::migrate::{parse_get_migrate, parse_put_migrate};
 use super::request::version::parse_get_version;
 use super::request::vsock::parse_put_vsock;
 use crate::api_server::request::hotplug::memory::{
@@ -111,6 +111,7 @@ impl TryFrom<&Request> for ParsedRequest {
                 parse_put_net(body, path_tokens.next())
             }
             (Method::Put, "snapshot", Some(body)) => parse_put_snapshot(body, path_tokens.next()),
+            (Method::Put, "migrate", Some(body)) => parse_put_migrate(body),
             (Method::Put, "vsock", Some(body)) => parse_put_vsock(body),
             (Method::Put, "entropy", Some(body)) => parse_put_entropy(body),
             (Method::Put, "hotplug", Some(body)) if path_tokens.next() == Some("memory") => {
