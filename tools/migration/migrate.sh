@@ -58,6 +58,10 @@ echo "== CUTOVER: pause src -> final diff+state -> load+resume dst (single proce
 # resume happen back-to-back with no process spawn between them. Time the freeze
 # from inside the container.
 docker exec src bash -c "
+  # Converge: one last dirty round while still running, so the diff captured
+  # during the freeze is only what changes in the sub-millisecond before pause.
+  curl -s --unix-socket $SRC_SOCK -X PUT http://localhost/migrate \
+      -d '{\"memory_path\":\"$MEM\",\"snapshot_type\":\"Diff\"}'
   t0=\$(date +%s%N)
   curl -s --unix-socket $SRC_SOCK -X PATCH http://localhost/vm -d '{\"state\":\"Paused\"}'
   curl -s --unix-socket $SRC_SOCK -X PUT http://localhost/snapshot/create \
