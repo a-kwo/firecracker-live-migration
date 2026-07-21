@@ -23,6 +23,9 @@ echo "== prepare dst (tap0 + waiting firecracker on /fc/dst.sock) =="
 docker exec dst bash -c "
   pkill -9 firecracker 2>/dev/null || true; sleep 1
   ip link show tap0 >/dev/null 2>&1 || ip tuntap add tap0 mode tap
+  # Same fixed TAP (gateway) MAC as src, so the guest's cached gateway ARP entry
+  # stays valid after the move.
+  ip link set tap0 address 06:00:ac:10:00:01
   ip addr replace 172.16.0.1/24 dev tap0
   ip link set tap0 up
   rm -f $DST_SOCK
