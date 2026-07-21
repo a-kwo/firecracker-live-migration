@@ -16,10 +16,12 @@ GUEST_IP=172.16.0.2
 echo "== booting guest in container '$HOST' =="
 docker exec "$HOST" bash -c "
   set -e
+  # Kill any stale VMM first and let it release tap0 before we reopen it.
+  pkill -9 firecracker 2>/dev/null || true
+  sleep 1
   ip link show tap0 >/dev/null 2>&1 || ip tuntap add tap0 mode tap
   ip addr replace 172.16.0.1/24 dev tap0
   ip link set tap0 up
-  pkill -9 firecracker 2>/dev/null || true
   rm -f /tmp/fc.sock
   # stdin from /dev/null so the backgrounded VMM is not stopped by SIGTTIN.
   nohup $FCBIN --api-sock /tmp/fc.sock --config-file /fc/vm_config.json \
