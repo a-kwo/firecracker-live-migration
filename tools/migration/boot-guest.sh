@@ -2,14 +2,11 @@
 # Copyright 2026 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Boot the demo microVM inside one of the host containers (default: src).
-# Sets up the guest TAP in the container's network namespace, launches
-# Firecracker from the shared /fc mount, and verifies the guest is reachable
-# over SSH. Run from the VM host:  bash tools/migration/boot-guest.sh src
-#
-# The API socket is placed on the shared /fc mount (/fc/<host>.sock) so the
-# cutover can drive both source and destination from a single process, keeping
-# orchestration overhead out of the blackout window.
+# Boot the demo microVM in the 'src' host container. The guest taps live on the
+# host bridge (created by setup-hosts.sh), so there is no per-container network
+# setup here: Firecracker just attaches to tap_src via the config. The API
+# socket goes on the shared /fc mount so the cutover can drive both hosts from a
+# single process. Run from the VM host:  bash tools/migration/boot-guest.sh src
 set -euo pipefail
 
 HOST="${1:-src}"
@@ -23,12 +20,6 @@ docker exec "$HOST" bash -c "
   set -e
   pkill -9 firecracker 2>/dev/null || true
   sleep 1
-  ip link show tap0 >/dev/null 2>&1 || ip tuntap add tap0 mode tap
-  # Pin a fixed TAP (gateway) MAC identical on both hosts, so the guest's cached
-  # gateway ARP entry stays valid across the migration.
-  ip link set tap0 address 06:00:ac:10:00:01
-  ip addr replace 172.16.0.1/24 dev tap0
-  ip link set tap0 up
   rm -f $SOCK
   # stdin from /dev/null so the backgrounded VMM is not stopped by SIGTTIN.
   nohup $FCBIN --api-sock $SOCK --config-file /fc/tools/migration/vm_config.json \
