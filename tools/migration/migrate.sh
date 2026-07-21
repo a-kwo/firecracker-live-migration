@@ -77,6 +77,10 @@ docker exec src bash -c "
   echo \"   TRUE BLACKOUT (pause -> resume): \$(ms \$t0 \$t3) ms\"
 "
 
+echo "== firecracker-internal timings (exclude curl/orchestration overhead) =="
+docker exec src grep "API request took" /tmp/fc.log | tail -3 | sed 's/^/   src: /'
+docker exec dst grep "API request took" /tmp/fc.log | tail -1 | sed 's/^/   dst: /'
+
 echo "== verify guest resumed on dst =="
 sleep 2
 gssh dst 'echo "  marker_after=$(cat /dev/shm/proof) uptime_after=$(cut -d" " -f1 /proc/uptime)s"' \
