@@ -619,9 +619,15 @@ impl KvmVm {
                 self.guest_memory().dump_dirty(&mut file, &dirty_bitmap)?;
             }
             SnapshotType::Full => {
-                self.guest_memory().dump(&mut file)?;
+                // Reset dirty tracking BEFORE dumping, not after. If the dump runs
+                // while the vCPUs are live (pre-copy migration), a page the guest
+                // writes during the dump must stay marked dirty so a later diff
+                // round re-sends it; resetting afterwards would clear that bit and
+                // leave the destination with a stale page. For a paused snapshot no
+                // writes occur during the dump, so this is equivalent.
                 self.reset_dirty_bitmap();
                 self.guest_memory().reset_dirty();
+                self.guest_memory().dump(&mut file)?;
             }
         };
 

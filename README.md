@@ -4,6 +4,13 @@
    <img alt="Firecracker Logo Title" width="750" src="docs/images/fc_logo_full_transparent-bg.png">
 </picture>
 
+> **This fork: Live VM Migration.** This fork adds pre-copy live migration to
+> Firecracker: a running microVM moves between two hosts with **~22 ms of
+> blackout** (≤ 30 ms budget) while a client pings it 1,000×/sec. Start with
+> the [design doc](docs/live-migration.md), the
+> [demo harness](tools/migration/README.md), and the new
+> [`/migrate` API + migration module](src/vmm/src/migration/mod.rs).
+
 Our mission is to enable secure, multi-tenant, minimal-overhead execution of
 container and function workloads.
 
