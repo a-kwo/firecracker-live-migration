@@ -49,6 +49,7 @@ start_host() {
     local name="$1"
     docker rm -f "$name" >/dev/null 2>&1 || true
     docker run -d --name "$name" \
+        --init \
         --network host \
         --device /dev/kvm \
         --device /dev/net/tun \
