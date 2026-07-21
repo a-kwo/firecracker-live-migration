@@ -38,10 +38,19 @@ docker exec src grep "API request took" /tmp/fc.log | tail -3 | sed 's/^/   src:
 docker exec dst grep "API request took" /tmp/fc.log | tail -1 | sed 's/^/   dst: /'
 
 echo "== verify guest resumed on dst =="
-sleep 2
-docker exec dst ssh -i "$KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=6 "root@$GUEST_IP" \
-    'echo "  marker_after=$(cat /dev/shm/proof) uptime_after=$(cut -d" " -f1 /proc/uptime)s"' \
-    || echo "  verify SSH failed (retry after ARP settles)"
+# The resumed guest re-advertises its MAC via gratuitous ARP; give the dst
+# container's neighbor table a moment to resolve before checking, and retry.
+for attempt in 1 2 3 4 5; do
+    sleep 1
+    if out=$(docker exec dst ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ConnectTimeout=4 "root@$GUEST_IP" \
+        'echo "marker_after=$(cat /dev/shm/proof) uptime_after=$(cut -d" " -f1 /proc/uptime)s"' \
+        2>/dev/null); then
+        echo "  $out"
+        break
+    fi
+    [ "$attempt" -eq 5 ] && echo "  verify SSH failed after 5 retries"
+done
 
 echo "== teardown source =="
 docker exec src pkill -9 firecracker 2>/dev/null || true
