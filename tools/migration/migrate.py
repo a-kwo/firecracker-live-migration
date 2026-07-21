@@ -24,6 +24,9 @@ MEM = "/mig/mem.file"
 STATE = "/mig/snap.file"
 KEY = "/fc/ubuntu-24.04.id_rsa"
 GUEST_IP = "172.16.0.2"
+GUEST_MAC = "06:00:ac:10:00:02"
+SRC_TAP = "tap_src"
+DST_TAP = "tap_dst"
 ROUNDS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 
 
@@ -89,9 +92,18 @@ def main():
     api(SRC_SOCK, "PATCH", "/vm", '{"state":"Paused"}')
     api(SRC_SOCK, "PUT", "/snapshot/create",
         f'{{"snapshot_type":"Diff","snapshot_path":"{STATE}","mem_file_path":"{MEM}"}}')
+    # Drop the bridge's learned location for the guest MAC while the guest is
+    # frozen: the first frame after resume floods to every port and reaches the
+    # guest on its new tap immediately, instead of blackholing to the source tap
+    # until the guest happens to transmit.
+    subprocess.run(
+        ["bridge", "fdb", "del", GUEST_MAC, "dev", SRC_TAP, "master"],
+        capture_output=True,
+    )
     api(DST_SOCK, "PUT", "/snapshot/load",
         f'{{"snapshot_path":"{STATE}",'
         f'"mem_backend":{{"backend_type":"File","backend_path":"{MEM}"}},'
+        f'"network_overrides":[{{"iface_id":"eth0","host_dev_name":"{DST_TAP}"}}],'
         f'"resume_vm":true}}')
     t1 = time.monotonic_ns()
 

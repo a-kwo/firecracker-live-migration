@@ -19,15 +19,9 @@ DST_SOCK=/fc/dst.sock
 FCBIN=/fc/build/cargo_target/x86_64-unknown-linux-musl/debug/firecracker
 ROUNDS=${ROUNDS:-3}
 
-echo "== prepare dst (tap0 + waiting firecracker on /fc/dst.sock) =="
+echo "== prepare dst (waiting firecracker on /fc/dst.sock; taps live on the host bridge) =="
 docker exec dst bash -c "
   pkill -9 firecracker 2>/dev/null || true; sleep 1
-  ip link show tap0 >/dev/null 2>&1 || ip tuntap add tap0 mode tap
-  # Same fixed TAP (gateway) MAC as src, so the guest's cached gateway ARP entry
-  # stays valid after the move.
-  ip link set tap0 address 06:00:ac:10:00:01
-  ip addr replace 172.16.0.1/24 dev tap0
-  ip link set tap0 up
   rm -f $DST_SOCK
   nohup $FCBIN --api-sock $DST_SOCK </dev/null >/tmp/fc.log 2>&1 &
   sleep 1

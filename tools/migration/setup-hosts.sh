@@ -23,7 +23,13 @@ echo "== building $IMAGE image =="
 docker build -q -t "$IMAGE" "$HERE" >/dev/null
 
 echo "== host bridge $NET_BRIDGE + guest taps (tap_src, tap_dst) =="
+# Remove the legacy single-host tap if present: it carried the same
+# 172.16.0.1/24 and would steal the route from the bridge.
+sudo ip link del tap0 2>/dev/null || true
 sudo ip link add "$NET_BRIDGE" type bridge 2>/dev/null || true
+# No STP and no forwarding delay: new ports must pass traffic immediately so
+# cutover reconvergence stays in the milliseconds.
+sudo ip link set "$NET_BRIDGE" type bridge forward_delay 0 stp_state 0
 # Pin the bridge (guest gateway) MAC so the guest's cached gateway ARP entry
 # stays valid across the move.
 sudo ip link set "$NET_BRIDGE" address 06:00:ac:10:00:01
