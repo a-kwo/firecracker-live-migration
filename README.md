@@ -5,8 +5,7 @@
 </picture>
 
 > **This fork: Live VM Migration.** This fork adds pre-copy live migration to
-> Firecracker: a running microVM moves between two hosts with **~22 ms of
-> blackout** (≤ 30 ms budget) while a client pings it 1,000×/sec. Start with
+> Firecracker: a running microVM moves between two hosts with ≤ 30 ms budget while a client pings it 1,000×/sec. Start with
 > the [design doc](docs/live-migration.md), the
 > [demo harness](tools/migration/README.md), and the new
 > [`/migrate` API + migration module](src/vmm/src/migration/mod.rs).
