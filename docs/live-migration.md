@@ -1,4 +1,4 @@
-# Live VM Migration — Design
+# Live VM Migration Design
 
 ## Goal
 
